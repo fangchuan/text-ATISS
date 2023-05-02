@@ -32,6 +32,7 @@ from simple_3dviz.behaviours.movements import CameraTrajectory
 from simple_3dviz.behaviours.trajectory import Circle
 from simple_3dviz.behaviours.io import SaveFrames, SaveGif
 from simple_3dviz.utils import render
+import matplotlib.pyplot as plt
 
 
 def main(argv):
@@ -40,25 +41,28 @@ def main(argv):
     )
 
     parser.add_argument(
-        "config_file",
+        "--config_file",
+        default="../config/bedrooms_config.yaml",
         help="Path to the file that contains the experiment configuration"
     )
     parser.add_argument(
-        "output_directory",
-        default="/tmp/",
+        "--output_directory",
+        default="../generated_scene/",
         help="Path to the output directory"
     )
     parser.add_argument(
-        "path_to_pickled_3d_futute_models",
+        "--path_to_pickled_3d_futute_models",
+        default="/media/hkust/data/dataset/3D_FRONT_FUTURE/threed_future_model_bedroom.pkl",
         help="Path to the 3D-FUTURE model meshes"
     )
     parser.add_argument(
-        "path_to_floor_plan_textures",
+        "--path_to_floor_plan_textures",
+        default="../demo/floor_plan_texture_images/",
         help="Path to floor texture images"
     )
     parser.add_argument(
         "--weight_file",
-        default=None,
+        default='../training_log/A9O71FPW1/model_02400',
         help="Path to a pretrained model"
     )
     parser.add_argument(
@@ -114,7 +118,8 @@ def main(argv):
     )
     parser.add_argument(
         "--without_screen",
-        action="store_true",
+        default=False,
+        type=bool,
         help="Perform no screen rendering"
     )
     parser.add_argument(

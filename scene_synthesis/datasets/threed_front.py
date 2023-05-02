@@ -224,8 +224,9 @@ class CachedThreedFront(ThreedFront):
         self._tags = sorted([
             oi
             for oi in os.listdir(self._base_dir)
-            if oi.split("_")[1] in scene_ids
+            if os.path.isdir(os.path.join(self._base_dir, oi))  and oi.split("_")[1] in scene_ids
         ])
+
         self._path_to_rooms = sorted([
             os.path.join(self._base_dir, pi, "boxes.npz")
             for pi in self._tags

@@ -90,9 +90,26 @@ class BaseAutoregressiveTransformer(nn.Module):
         }
 
     def start_symbol_features(self, B, room_mask):
+        print(f'room_mask.shape: {room_mask.shape}')
+        print(f'self.feature_extractor(room_mask) output feature size: {self.feature_extractor(room_mask).shape}')
         room_layout_f = self.fc_room_f(self.feature_extractor(room_mask))
+        print(f'room_layout_f.shape: {room_layout_f.shape}')
         return room_layout_f[:, None, :]
 
+    def start_symbol_features_from_text(self, B, text_prompt:str = ""):
+        from transformers import CLIPTokenizer, CLIPTextModel
+        CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
+        model = CLIPTextModel.from_pretrained(CLIP_MODEL_ID)
+        tokenizer = CLIPTokenizer.from_pretrained(CLIP_MODEL_ID)
+
+        inputs = tokenizer([text_prompt], padding=True, return_tensors="pt")
+
+        outputs = model(**inputs)
+        last_hidden_state = outputs.last_hidden_state
+        pooled_output = outputs.pooler_output  # pooled (EOS token) states
+        room_layout_f = pooled_output
+        return room_layout_f[:, None, :]
+    
     def forward(self, sample_params):
         raise NotImplementedError()
 
