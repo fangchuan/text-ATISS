@@ -72,6 +72,7 @@ dependencies:
   - zlib=1.2.13=h5eee18b_0
   - zstd=1.5.5=hc292b87_0
   - pip:
+    - attrdict
     - contourpy==1.0.7
     - cycler==0.11.0
     - cython==0.29.21
@@ -101,4 +102,3 @@ dependencies:
     - wxpython==4.2.0
     - zipp==3.15.0
 prefix: /home/yuanzhen/anaconda3/envs/ATISS
-PATH_TO_SCENES="/codes/ATISS/threed_front.pkl" python preprocess_data.py /media/hkust/data/dataset/3D_FRONT_FUTURE/ /media/hkust/data/dataset/3D_FRONT_FUTURE/3D_Front/3D-FRONT/ /media/hkust/data/dataset/3D_FRONT_FUTURE/3D_Future/3D-FUTURE-model/ /media/hkust/data/dataset/3D_FRONT_FUTURE/3D_Future/3D-FUTURE-model/model_info.json  ../demo/floor_plan_texture_images/
