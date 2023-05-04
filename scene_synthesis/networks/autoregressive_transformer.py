@@ -90,10 +90,10 @@ class BaseAutoregressiveTransformer(nn.Module):
         }
 
     def start_symbol_features(self, B, room_mask):
-        print(f'room_mask.shape: {room_mask.shape}')
-        print(f'self.feature_extractor(room_mask) output feature size: {self.feature_extractor(room_mask).shape}')
+        # print(f'room_mask.shape: {room_mask.shape}') torch.Size([1, 1, 64, 64])
+        # print(f'self.feature_extractor(room_mask) output feature size: {self.feature_extractor(room_mask).shape}') torch.Size([1, 64])
         room_layout_f = self.fc_room_f(self.feature_extractor(room_mask))
-        print(f'room_layout_f.shape: {room_layout_f.shape}')
+        # print(f'room_layout_f.shape: {room_layout_f.shape}') torch.Size([1, 512])
         return room_layout_f[:, None, :]
 
     def start_symbol_features_from_text(self, B, text_prompt:str = ""):
@@ -107,6 +107,7 @@ class BaseAutoregressiveTransformer(nn.Module):
         outputs = model(**inputs)
         last_hidden_state = outputs.last_hidden_state
         pooled_output = outputs.pooler_output  # pooled (EOS token) states
+        # TODO: should we add additional linear layer?
         room_layout_f = pooled_output
         return room_layout_f[:, None, :]
     

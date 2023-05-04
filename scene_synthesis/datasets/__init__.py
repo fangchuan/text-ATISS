@@ -9,10 +9,16 @@
 from .base import THREED_FRONT_BEDROOM_FURNITURE, \
     THREED_FRONT_LIVINGROOM_FURNITURE, THREED_FRONT_LIBRARY_FURNITURE
 from .common import BaseDataset
-from .threed_front import ThreedFront, CachedThreedFront
+from .threed_front import ThreedFront, CachedThreedFront, CachedTextThreedFront
 from .threed_front_dataset import dataset_encoding_factory
 
 from .splits_builder import CSVSplitsBuilder
+from .text_utils import (
+    GetFreqenciedCategory,
+    AddRelationAmongObjects,
+    AddDescriptions
+)
+from torchvision.transforms import Compose
 
 
 def get_raw_dataset(
@@ -22,7 +28,7 @@ def get_raw_dataset(
     split=["train", "val"]
 ):
     dataset_type = config["dataset_type"]
-    if "cached" in dataset_type:
+    if ("cached" in dataset_type) and ("text" not in dataset_type):
         # Make the train/test/validation splits
         splits_builder = CSVSplitsBuilder(config["annotation_file"])
         split_scene_ids = splits_builder.get_splits(split)
@@ -32,6 +38,25 @@ def get_raw_dataset(
             config["dataset_directory"],
             config=config,
             scene_ids=split_scene_ids
+        )
+    elif ("cached" in dataset_type) and ("text"  in dataset_type):
+        # Make the train/test/validation splits
+        splits_builder = CSVSplitsBuilder(config["annotation_file"])
+        split_scene_ids = splits_builder.get_splits(split)
+        
+        threed_future_model_info_filepath = config["threed_future_model_info_filepath"]
+        transform_opts = Compose(
+                                [
+                                    GetFreqenciedCategory(threed_future_model_info_filepath),
+                                    AddRelationAmongObjects(threed_future_model_info_filepath),
+                                    AddDescriptions()
+                                ])
+        dataset = CachedTextThreedFront(
+            config["dataset_directory"],
+            config=config,
+            scene_ids=split_scene_ids,
+            transforms=transform_opts, 
+            model_info_filepath=threed_future_model_info_filepath
         )
     else:
         dataset = ThreedFront.from_dataset_directory(
@@ -54,10 +79,10 @@ def get_dataset_raw_and_encoded(
 ):
     dataset = get_raw_dataset(config, filter_fn, path_to_bounds, split=split)
     encoding = dataset_encoding_factory(
-        config.get("encoding_type"),
-        dataset,
-        augmentations,
-        config.get("box_ordering", None)
+        name=config.get("encoding_type"),
+        dataset=dataset,
+        augmentations=augmentations,
+        box_ordering=config.get("box_ordering", None)
     )
 
     return dataset, encoding

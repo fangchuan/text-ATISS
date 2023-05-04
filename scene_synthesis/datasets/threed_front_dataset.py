@@ -20,6 +20,7 @@ class DatasetDecoratorBase(Dataset):
     datasets."""
     def __init__(self, dataset):
         self._dataset = dataset
+        print(f'DatasetDecoratorBase::init : dataset type {type(dataset)}')
 
     def __len__(self):
         return len(self._dataset)
@@ -199,6 +200,7 @@ class DatasetCollection(DatasetDecoratorBase):
     def __getitem__(self, idx):
         sample_params = {}
         for di in self._datasets:
+            print(f'DatasetCollection::getitem : di type: {type(di)}')
             sample_params[di.property_type] = di[idx]
         return sample_params
 
@@ -253,6 +255,7 @@ class CachedDatasetCollection(DatasetCollection):
         self._dataset = dataset
 
     def __getitem__(self, idx):
+        print('CachedDatasetCollection::getitem')
         return self._dataset.get_room_params(idx)
 
     @property
@@ -415,7 +418,8 @@ class Autoregressive(DatasetDecoratorBase):
         sample_params_target = {}
         # Compute the target from the input
         for k, v in sample_params.items():
-            if k == "room_layout" or k == "length":
+            print(f'Autoregressive::getitem() {k}')
+            if k == "room_layout" or k == "length" or k == "description":
                 pass
             elif k == "class_labels":
                 class_labels = np.copy(v)
@@ -478,8 +482,8 @@ def dataset_encoding_factory(
     #       though.
     if "cached" in name:
         dataset_collection = OrderedDataset(
-            CachedDatasetCollection(dataset),
-            ["class_labels", "translations", "sizes", "angles"],
+            dataset=CachedDatasetCollection(dataset),
+            ordered_keys=["class_labels", "translations", "sizes", "angles"],
             box_ordering=box_ordering
         )
     else:

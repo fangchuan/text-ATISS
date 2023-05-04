@@ -17,6 +17,7 @@ from PIL import Image
 from .common import BaseDataset
 from .threed_front_scene import Room
 from .utils import parse_threed_front_scenes
+from .threed_front_scene import ModelInfo
 
 
 class ThreedFront(BaseDataset):
@@ -180,6 +181,11 @@ class ThreedFront(BaseDataset):
 
 
 class CachedRoom(object):
+    """Datastructure of preprocessed scene .
+
+    Args:
+        object (_type_): _description_
+    """
     def __init__(
         self,
         scene_id,
@@ -193,6 +199,20 @@ class CachedRoom(object):
         angles,
         image_path
     ):
+        """Initialization
+
+        Args:
+            scene_id (str): unique scene id
+            room_layout (PIL.Image): topview image of room layout
+            floor_plan_vertices (np.array): floor plane mesh vectices.
+            floor_plan_faces (np.array): floor plane mesh faces.
+            floor_plan_centroid (np.array): floor plane center.
+            class_labels (np.array): one-shot label vectors of each furniture.
+            translations (np.array): bbox centroid of each furniture.
+            sizes (np.array): bbox size of each furniture.
+            angles (np.array): yaw angle(on X-Z plane) of each furniture. 
+            image_path (PIL.Image): rendered image.
+        """
         self.scene_id = scene_id
         self.room_layout = room_layout
         self.floor_plan_faces = floor_plan_faces
@@ -213,11 +233,82 @@ class CachedRoom(object):
     def room_mask(self):
         return self.room_layout[:, :, None]
 
+class CachedTextRoom(object):
+    """Datastructure of preprocessed scene, with text description of scene.
+
+    Args:
+        object (_type_): _description_
+    """
+    def __init__(
+        self,
+        scene_id,
+        uids,
+        jids,
+        scene_uid,
+        scene_type,
+        room_layout,
+        floor_plan_vertices,
+        floor_plan_faces,
+        floor_plan_centroid,
+        class_labels,
+        translations,
+        sizes,
+        angles,
+        image_path,
+        cat_name_seq = None,
+        relations = None,
+        description = None
+    ):
+        """Initlization
+
+        Args:
+            scene_id (str): unique scene id
+            room_layout (PIL.Image): topview image of room layout
+            floor_plan_vertices (np.array): floor plane mesh vectices.
+            floor_plan_faces (np.array): floor plane mesh faces.
+            floor_plan_centroid (np.array): floor plane center.
+            class_labels (np.array): one-shot label vectors of each furniture.
+            translations (np.array): bbox centroid of each furniture.
+            sizes (np.array): bbox size of each furniture.
+            angles (np.array): yaw angle(on X-Z plane) of each furniture. 
+            image_path (PIL.Image): rendered image.
+            cat_name_seq (_type_, optional): _description_. Defaults to None.
+            relations (_type_, optional): _description_. Defaults to None.
+            description (_type_, optional): _description_. Defaults to None.
+        """
+        self.scene_id = scene_id
+        self.uids = uids
+        self.jids = jids
+        self.scene_uid = scene_uid
+        self.scene_type = scene_type
+        self.room_layout = room_layout
+        self.floor_plan_faces = floor_plan_faces
+        self.floor_plan_vertices = floor_plan_vertices
+        self.floor_plan_centroid = floor_plan_centroid
+        self.class_labels = class_labels
+        self.translations = translations
+        self.sizes = sizes
+        self.angles = angles
+        self.image_path = image_path
+        self.cat_name_seq = cat_name_seq
+        self.relations = relations
+        self.description = description
+
+    @property
+    def floor_plan(self):
+        return np.copy(self.floor_plan_vertices), \
+            np.copy(self.floor_plan_faces)
+
+    @property
+    def room_mask(self):
+        return self.room_layout[:, :, None]
+    
 
 class CachedThreedFront(ThreedFront):
-    def __init__(self, base_dir, config, scene_ids):
+    def __init__(self, base_dir, config, scene_ids, transforms=None, model_info_filepath=None):
         self._base_dir = base_dir
         self.config = config
+        self.transforms = transforms
 
         self._parse_train_stats(config["train_stats"])
 
@@ -280,6 +371,140 @@ class CachedThreedFront(ThreedFront):
             "translations": D["translations"],
             "sizes": D["sizes"],
             "angles": D["angles"]
+        }
+
+    def __len__(self):
+        return len(self._path_to_rooms)
+
+    def __str__(self):
+        return "Dataset contains {} scenes with {} discrete types".format(
+                len(self), self.n_object_types
+        )
+
+    def _parse_train_stats(self, train_stats):
+        with open(os.path.join(self._base_dir, train_stats), "r") as f:
+            train_stats = json.load(f)
+        self._centroids = train_stats["bounds_translations"]
+        self._centroids = (
+            np.array(self._centroids[:3]),
+            np.array(self._centroids[3:])
+        )
+        self._sizes = train_stats["bounds_sizes"]
+        self._sizes = (np.array(self._sizes[:3]), np.array(self._sizes[3:]))
+        self._angles = train_stats["bounds_angles"]
+        self._angles = (np.array(self._angles[0]), np.array(self._angles[1]))
+
+        self._class_labels = train_stats["class_labels"]
+        self._object_types = train_stats["object_types"]
+        self._class_frequencies = train_stats["class_frequencies"]
+        self._class_order = train_stats["class_order"]
+        self._count_furniture = train_stats["count_furniture"]
+
+    @property
+    def class_labels(self):
+        return self._class_labels
+
+    @property
+    def object_types(self):
+        return self._object_types
+
+    @property
+    def class_frequencies(self):
+        return self._class_frequencies
+
+    @property
+    def class_order(self):
+        return self._class_order
+
+    @property
+    def count_furniture(self):
+        return self._count_furniture
+
+
+
+class CachedTextThreedFront(ThreedFront):
+    def __init__(self, base_dir, config, scene_ids, transforms=None, model_info_filepath=None):
+        self._base_dir = base_dir
+        self.config = config
+        self.transforms = transforms
+
+        self._parse_train_stats(config["train_stats"])
+
+        self._tags = sorted([
+            oi
+            for oi in os.listdir(self._base_dir)
+            if os.path.isdir(os.path.join(self._base_dir, oi))  and oi.split("_")[1] in scene_ids
+        ])
+
+        self._path_to_rooms = sorted([
+            os.path.join(self._base_dir, pi, "boxes.npz")
+            for pi in self._tags
+        ])
+        rendered_scene = "rendered_scene_256.png"
+        path_to_rendered_scene = os.path.join(
+            self._base_dir, self._tags[0], rendered_scene
+        )
+        if not os.path.isfile(path_to_rendered_scene):
+            rendered_scene = "rendered_scene_256_no_lamps.png"
+
+        self._path_to_renders = sorted([
+            os.path.join(self._base_dir, pi, rendered_scene)
+            for pi in self._tags
+        ])
+
+        # TODO: useless, remove
+        if model_info_filepath is not None:
+            # Parse the model info
+            mf = ModelInfo.from_file(model_info_filepath)
+            self.model_info = mf.model_info
+
+    def _get_room_layout(self, room_layout):
+        # Resize the room_layout if needed
+        img = Image.fromarray(room_layout[:, :, 0])
+        img = img.resize(
+            tuple(map(int, self.config["room_layout_size"].split(","))),
+            resample=Image.BILINEAR
+        )
+        D = np.asarray(img).astype(np.float32) / np.float32(255)
+        return D
+
+    @lru_cache(maxsize=32)
+    def __getitem__(self, i):
+        D = np.load(self._path_to_rooms[i])
+        scene_sample = CachedTextRoom(
+            scene_id=D["scene_id"],
+            uids=D["uids"],
+            jids=D["jids"],
+            scene_uid=D["scene_uid"],
+            scene_type=D["scene_type"],
+            room_layout=self._get_room_layout(D["room_layout"]),
+            floor_plan_vertices=D["floor_plan_vertices"],
+            floor_plan_faces=D["floor_plan_faces"],
+            floor_plan_centroid=D["floor_plan_centroid"],
+            class_labels=D["class_labels"],
+            translations=D["translations"],
+            sizes=D["sizes"],
+            angles=D["angles"],
+            image_path=self._path_to_renders[i]
+        )
+        if self.transforms:
+            scene_sample = self.transforms(scene_sample)
+        return scene_sample
+
+    def get_room_params(self, i):
+        print('CachedTextThreedFront::get_room_params')
+        sample = self.__getitem__(i)
+        D = np.load(self._path_to_rooms[i])
+
+        room = self._get_room_layout(D["room_layout"])
+        room = np.transpose(room[:, :, None], (2, 0, 1))
+        return {
+            "room_layout": room,
+            "class_labels": D["class_labels"],
+            "translations": D["translations"],
+            "sizes": D["sizes"],
+            "angles": D["angles"],
+            "description": sample.description
         }
 
     def __len__(self):

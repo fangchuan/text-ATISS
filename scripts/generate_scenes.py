@@ -21,6 +21,7 @@ from utils import floor_plan_from_scene, export_scene
 from scene_synthesis.datasets import filter_function, \
     get_dataset_raw_and_encoded
 from scene_synthesis.datasets.threed_future_dataset import ThreedFutureDataset
+from  scene_synthesis.datasets.threed_front import CachedTextRoom
 from scene_synthesis.networks import build_network
 from scene_synthesis.utils import get_textured_objects
 
@@ -42,7 +43,7 @@ def main(argv):
 
     parser.add_argument(
         "--config_file",
-        default="../config/bedrooms_config.yaml",
+        default="../config/text_bedrooms_config.yaml",
         help="Path to the file that contains the experiment configuration"
     )
     parser.add_argument(
@@ -52,7 +53,7 @@ def main(argv):
     )
     parser.add_argument(
         "--path_to_pickled_3d_futute_models",
-        default="/media/hkust/data/dataset/3D_FRONT_FUTURE/threed_future_model_bedroom.pkl",
+        default="/data/dataset/3D_FRONT_FUTURE/threed_future_model_bedroom.pkl",
         help="Path to the 3D-FUTURE model meshes"
     )
     parser.add_argument(
@@ -118,7 +119,7 @@ def main(argv):
     )
     parser.add_argument(
         "--without_screen",
-        default=False,
+        default=True,
         type=bool,
         help="Perform no screen rendering"
     )
@@ -198,6 +199,9 @@ def main(argv):
         print("{} / {}: Using the {} floor plan of scene {}".format(
             i, args.n_sequences, scene_idx, current_scene.scene_id)
         )
+        if isinstance(current_scene, CachedTextRoom):
+            print('scene text description: {}'.format(' '.join(current_scene.description)))
+        
         # Get a floor plan
         floor_plan, tr_floor, room_mask = floor_plan_from_scene(
             current_scene, args.path_to_floor_plan_textures

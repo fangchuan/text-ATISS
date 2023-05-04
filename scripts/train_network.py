@@ -74,16 +74,20 @@ def main(argv):
     )
 
     parser.add_argument(
-        "config_file",
+        "--config_file",
+        type=str,
+        default="../config/text_bedrooms_config.yaml",
         help="Path to the file that contains the experiment configuration"
     )
     parser.add_argument(
-        "output_directory",
+        "--output_directory",
+        type=str,
+        default="../training_log",
         help="Path to the output directory"
     )
     parser.add_argument(
         "--weight_file",
-        default=None,
+        default="../training_log/A9O71FPW1/model_02400",
         help=("The path to a previously trained model to continue"
               " the training from")
     )
@@ -107,7 +111,8 @@ def main(argv):
     )
     parser.add_argument(
         "--experiment_tag",
-        default=None,
+        type=str,
+        default="A9O71FPW1",
         help="Tag that refers to the current experiment"
     )
     parser.add_argument(
@@ -158,8 +163,8 @@ def main(argv):
     config = load_config(args.config_file)
 
     train_dataset = get_encoded_dataset(
-        config["data"],
-        filter_function(
+        config=config["data"],
+        filter_fn=filter_function(
             config["data"],
             split=config["training"].get("splits", ["train", "val"])
         ),
@@ -167,6 +172,7 @@ def main(argv):
         augmentations=config["data"].get("augmentations", None),
         split=config["training"].get("splits", ["train", "val"])
     )
+    print(f'train_dataset type: {type(train_dataset)}')
     # Compute the bounds for this experiment, save them to a file in the
     # experiment directory and pass them to the validation dataset
     path_to_bounds = os.path.join(experiment_directory, "bounds.npz")
@@ -219,8 +225,8 @@ def main(argv):
 
     # Build the network architecture to be used for training
     network, train_on_batch, validate_on_batch = build_network(
-        train_dataset.feature_size, train_dataset.n_classes,
-        config, args.weight_file, device=device
+        input_dims=train_dataset.feature_size, n_classes=train_dataset.n_classes,
+        config=config, weight_file=args.weight_file, device=device
     )
     # Build an optimizer object to compute the gradients of the parameters
     optimizer = optimizer_factory(config["training"], network.parameters())
@@ -258,6 +264,8 @@ def main(argv):
             # Move everything to device
             for k, v in sample.items():
                 sample[k] = v.to(device)
+            print(f'sample keys: {sample.keys()}')
+            print('sample text prompt: {}'.format(' '.join(sample['description'])))
             batch_loss = train_on_batch(network, optimizer, sample, config)
             StatsLogger.instance().print_progress(i+1, b+1, batch_loss)
 
